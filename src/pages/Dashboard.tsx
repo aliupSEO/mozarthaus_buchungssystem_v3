@@ -1,6 +1,18 @@
+import { useState, useEffect } from 'react';
 import { collection, onSnapshot, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
+import { db } from '../lib/firebase';
+import { APP_ID } from '../lib/constants';
+import { Booking, Event } from '../types/schema';
+import { Activity, CalendarDays, Ticket, Euro, ArrowRight, Download } from 'lucide-react';
 
-... 
+export function Dashboard() {
+  const navigate = useNavigate();
+  const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const [nextEvent, setNextEvent] = useState<Event | null>(null);
+  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
 
   const handleSyncEvents = async () => {
     const loadingToast = toast.loading('Synchronisations-Trigger wird an n8n gesendet...');
