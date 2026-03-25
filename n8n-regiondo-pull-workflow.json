@@ -35,7 +35,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const crypto = require('crypto');\n\nconst publicKey = 'MO43f21d011626';\nconst privateKey = '43f21d0f4ba8f05b111626d551fd8509160d0';\nconst timestamp = Date.now().toString();\n\n// Build string to hash: publicKey + timestamp \nconst stringToHash = publicKey + timestamp;\n\n// Create HMAC SHA256 signature\nconst hash = crypto.createHmac('sha256', privateKey).update(stringToHash).digest('hex');\n\nreturn {\n  json: {\n    ...$input.item.json,\n    'X-API-ID': publicKey,\n    'X-API-TIME': timestamp,\n    'X-API-HASH': hash\n  }\n};"
+        "jsCode": "const crypto = require('crypto');\n\nconst publicKey = 'MO43f21d011626';\nconst privateKey = '43f21d0f4ba8f05b111626d551fd8509160d0';\n// Regiondo needs PHP Unix Timestamp (10 digits, seconds) not JS milliseconds (13 digits)\nconst timestamp = Math.floor(Date.now() / 1000).toString();\n\n// DOCS: UTC unix timestamp + YOU_PUBLIC_KEY + stringified params\nconst stringToHash = timestamp + publicKey;\n\n// Create HMAC SHA256 signature\nconst hash = crypto.createHmac('sha256', privateKey).update(stringToHash).digest('hex');\n\nreturn {\n  json: {\n    ...$input.item.json,\n    'X-API-ID': publicKey,\n    'X-API-TIME': timestamp,\n    'X-API-HASH': hash\n  }\n};"
       },
       "name": "Generate Regiondo Auth HMAC",
       "type": "n8n-nodes-base.code",
