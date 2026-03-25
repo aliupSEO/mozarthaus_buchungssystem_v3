@@ -21,6 +21,7 @@ export interface Booking {
   eventId: string;
   variantId?: string;
   partnerId: string | null;
+  isB2B: boolean;
   source: 'manual' | 'regiondo' | 'b2b';
   status: 'confirmed' | 'cancelled' | 'pending' | 'paid';
   paymentMethod?: 'bar' | 'karte' | 'voucher' | 'rechnung';

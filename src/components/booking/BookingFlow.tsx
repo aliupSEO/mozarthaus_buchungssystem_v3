@@ -98,6 +98,7 @@ export function BookingFlow() {
         eventId: derivedEventId,
         variantId: variant,
         partnerId: selectedPartnerId || null,
+        isB2B: !!selectedPartnerId,
         source: selectedPartnerId ? 'b2b' : 'manual',
         status: 'confirmed',
         tickets,
