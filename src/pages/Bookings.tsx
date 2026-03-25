@@ -110,13 +110,13 @@ export function Bookings() {
                  </td>
                  <td className="p-4 max-w-xs">
                    <div className="flex flex-wrap gap-1">
-                     {b.seatIds.map(sid => (
+                     {b.seatIds?.map(sid => (
                        <span key={sid} className="bg-gray-100 border border-gray-200 text-gray-700 text-[10px] px-1.5 py-0.5 rounded uppercase">
                          {sid.replace(/row_|_seat_/g, ' ')}
                        </span>
                      ))}
                    </div>
-                   <div className="text-xs text-gray-500 mt-1">{b.seatIds.length} Platz/Plätze</div>
+                   <div className="text-xs text-gray-500 mt-1">{b.seatIds?.length || 0} Platz/Plätze</div>
                  </td>
                  <td className="p-4 font-bold">
                    € {calculateTotal(b).toFixed(2)}

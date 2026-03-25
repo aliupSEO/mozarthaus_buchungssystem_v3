@@ -1,4 +1,4 @@
-import { doc, runTransaction, writeBatch, Timestamp, collection, query, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, runTransaction, writeBatch, Timestamp, collection, query, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
 import { SEATING_PLAN_TEMPLATE } from '../config/seatingPlan';
