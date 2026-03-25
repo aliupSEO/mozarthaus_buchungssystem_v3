@@ -38,7 +38,7 @@ export interface Booking {
 export interface Partner {
   id: string;
   companyName: string;
-  type: 'b2b' | 'agency';
+  type: string;
   contactPerson: string;
   email: string;
   commissionRate?: number;

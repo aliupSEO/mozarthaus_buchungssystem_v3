@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
 import { Partner } from '../types/schema';
@@ -14,7 +14,29 @@ export function Partners() {
   const [companyName, setCompanyName] = useState('');
   const [contactPerson, setContactPerson] = useState('');
   const [email, setEmail] = useState('');
-  const [type, setType] = useState<'b2b'|'agency'>('b2b');
+  const [type, setType] = useState<string>('');
+  const [partnerTypes, setPartnerTypes] = useState<{id: string, name: string}[]>([]);
+
+  useEffect(() => {
+    const fetchPartnerTypes = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, `apps/${APP_ID}/partner_types`));
+        const typesData = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name
+        }));
+        setPartnerTypes(typesData);
+        
+        // Setze den ersten Typ als Standardwert, falls vorhanden
+        if (typesData.length > 0) {
+          setType(typesData[0].id);
+        }
+      } catch (error) {
+        console.error('Fehler beim Laden der Partner-Typen:', error);
+      }
+    };
+    fetchPartnerTypes();
+  }, []);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, `apps/${APP_ID}/partners`), snap => {
@@ -38,7 +60,11 @@ export function Partners() {
       setCompanyName('');
       setContactPerson('');
       setEmail('');
-      setType('b2b');
+      if (partnerTypes.length > 0) {
+        setType(partnerTypes[0].id);
+      } else {
+        setType('');
+      }
 
       await setDoc(doc(db, `apps/${APP_ID}/partners`, slugId), {
         companyName,
@@ -105,9 +131,10 @@ export function Partners() {
                </div>
                <div>
                   <label className="block text-sm text-gray-700 mb-1">Typ</label>
-                  <select value={type} onChange={e => setType(e.target.value as 'b2b'|'agency')} className="w-full p-2 border border-gray-300 rounded focus:border-brand-primary focus:ring-1 focus:ring-brand-primary">
-                    <option value="b2b">B2B Partner</option>
-                    <option value="agency">Agency (Ticketagentur)</option>
+                  <select value={type} onChange={e => setType(e.target.value)} className="w-full p-2 border border-gray-300 rounded focus:border-brand-primary focus:ring-1 focus:ring-brand-primary">
+                    {partnerTypes.map(pt => (
+                      <option key={pt.id} value={pt.id}>{pt.name}</option>
+                    ))}
                   </select>
                </div>
                <div>
