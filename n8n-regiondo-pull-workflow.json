@@ -1,0 +1,84 @@
+{
+  "name": "Regiondo API Pull Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "sync-regiondo-events",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "sync-regiondo-events-uuid"
+    },
+    {
+      "parameters": {
+        "url": "https://api.regiondo.com/v1/availabilities",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-PUBLIC-KEY",
+              "value": "MO43f21d011626"
+            },
+            {
+              "name": "X-SECRET-KEY",
+              "value": "43f21d0f4ba8f05b111626d551fd8509160d0"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const events = ($input.item.json.data || $input.item.json) || [];\nconst mappedEvents = [];\n\nfor (const event of events) {\n  const eventId = 'event_' + (event.id || Date.now() + Math.random().toString(36).substring(7));\n  \n  mappedEvents.push({\n    json: {\n      id: eventId,\n      date: event.date || event.start_date || new Date().toISOString().split('T')[0],\n      time: event.time || event.start_time || '19:30',\n      title: event.product_name || 'Mozart Ensemble',\n      status: 'active',\n      updatedAt: new Date().toISOString()\n    }\n  });\n}\n\nreturn mappedEvents;"
+      },
+      "name": "Data Mapping",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Data Mapping",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true
+}

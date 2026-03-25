@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
 import { Booking, Event } from '../types/schema';
-import { Activity, CalendarDays, Ticket, Euro, ArrowRight } from 'lucide-react';
+import { Activity, CalendarDays, Ticket, Euro, ArrowRight, Download } from 'lucide-react';
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -12,6 +13,19 @@ export function Dashboard() {
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [nextEvent, setNextEvent] = useState<Event | null>(null);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+
+  const handleSyncEvents = async () => {
+    const loadingToast = toast.loading('Synchronisation mit Regiondo läuft...');
+    try {
+      await fetch('http://up-seo-2025/webhook/sync-regiondo-events', {
+        method: 'GET'
+      });
+      toast.success('Synchronisation gestartet! Alle Termine werden per n8n-Abruf in Firebase geladen.', { id: loadingToast });
+    } catch (error) {
+      console.error('Fehler beim n8n-Sync:', error);
+      toast.error('Sync fehlgeschlagen. Bitte prüfe, ob die n8n Instanz (up-seo-2025) erreichbar ist.', { id: loadingToast });
+    }
+  };
 
   useEffect(() => {
     // Recent Bookings & Revenue
@@ -60,14 +74,24 @@ export function Dashboard() {
            <h1 className="text-3xl font-heading text-brand-primary font-bold">Willkommen zurück!</h1>
            <p className="text-gray-500 font-medium mt-1">Hier ist dein zentraler Überblick für Mozarthaus.at</p>
         </div>
-        {nextEvent && (
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <button 
-            onClick={() => navigate('/new-booking')}
-            className="flex items-center gap-2 bg-brand-primary text-white px-8 py-3.5 rounded-xl hover:bg-red-700 transition font-bold shadow-xl shadow-brand-primary/20 cursor-pointer animate-in zoom-in duration-300"
+            onClick={handleSyncEvents}
+            className="flex items-center justify-center gap-2 bg-white text-gray-700 border border-gray-200 px-6 py-3.5 rounded-xl hover:bg-gray-50 hover:text-brand-primary transition font-bold shadow-sm cursor-pointer"
           >
-            Neue Reservierung erfassen <ArrowRight className="w-5 h-5"/>
+            <Download className="w-4 h-4" />
+            Basisdaten sync
           </button>
-        )}
+          
+          {nextEvent && (
+            <button 
+              onClick={() => navigate('/new-booking')}
+              className="flex items-center justify-center gap-2 bg-brand-primary text-white px-8 py-3.5 rounded-xl hover:bg-red-700 transition font-bold shadow-xl shadow-brand-primary/20 cursor-pointer animate-in zoom-in duration-300"
+            >
+              Neue Reservierung <ArrowRight className="w-5 h-5"/>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* KPI Cards (Top Row) */}
