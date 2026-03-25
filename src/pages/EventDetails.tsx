@@ -63,6 +63,7 @@ export function EventDetails() {
       await createBooking(event!.id, selectedSeatIds, {
         source,
         partnerId: source === 'b2b' ? selectedPartnerId : null,
+        isB2B: source === 'b2b',
         status: 'confirmed',
         customerData: { name: customerName, email: customerEmail },
         totalAmount: calculateTotal()

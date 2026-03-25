@@ -33,6 +33,7 @@ export interface Booking {
   };
   totalAmount: number;
   createdAt: Timestamp;
+  updatedAt?: string | Timestamp;
 }
 
 export interface Partner {

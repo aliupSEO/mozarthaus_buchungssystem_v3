@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { APP_ID } from '../../lib/constants';
 import { DragDropContext, Droppable, DropResult } from '@hello-pangea/dnd';
 import { BookingCard } from './BookingCard';
 import { PaymentModal } from './PaymentModal';
 import { subscribeToBookings, updateBookingStatus } from '../../services/bookingManagementService';
 import { Booking } from '../../types/schema';
-import { LayoutDashboard, Loader2 } from 'lucide-react';
+import { LayoutDashboard, Loader2, Search, Calendar, Users } from 'lucide-react';
 
 export function BookingKanban() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -19,11 +22,49 @@ export function BookingKanban() {
     return () => unsub();
   }, []);
 
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterDate, setFilterDate] = useState('');
+  const [filterPartnerId, setFilterPartnerId] = useState('all');
+  const [partners, setPartners] = useState<{id: string, name: string}[]>([]);
+
+  useEffect(() => {
+    const fetchPartners = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, `apps/${APP_ID}/partners`));
+        const partnerData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name || doc.data().companyName || 'Unbekannt'
+        }));
+        setPartners(partnerData);
+      } catch (error) {
+        console.error('Fehler beim Laden der Partner:', error);
+      }
+    };
+    fetchPartners();
+  }, []);
+
+  const filteredBookings = useMemo(() => {
+    return bookings.filter(b => {
+      const matchSearch = b.customerData?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          b.customerData?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          b.id.includes(searchTerm);
+      
+      const matchDate = filterDate ? b.eventId.includes(filterDate.replace(/-/g, '')) : true;
+      const matchPartner = filterPartnerId === 'all' 
+        ? true 
+        : filterPartnerId === 'direct' 
+          ? (!b.partnerId || b.isB2B === false)
+          : b.partnerId === filterPartnerId;
+      
+      return matchSearch && matchDate && matchPartner;
+    });
+  }, [bookings, searchTerm, filterDate, filterPartnerId]);
+
   // Filter columns based on realtime DB snapshot
   const cols = {
-    pending: bookings.filter(b => b.status === 'pending' || b.status === 'confirmed'), // Treating legacy 'confirmed' as pending
-    paid: bookings.filter(b => b.status === 'paid'),
-    cancelled: bookings.filter(b => b.status === 'cancelled')
+    pending: filteredBookings.filter(b => b.status === 'pending' || b.status === 'confirmed'), // Treating legacy 'confirmed' as pending
+    paid: filteredBookings.filter(b => b.status === 'paid'),
+    cancelled: filteredBookings.filter(b => b.status === 'cancelled')
   };
 
   const onDragEnd = async (result: DropResult) => {
@@ -103,6 +144,71 @@ export function BookingKanban() {
             <p className="text-gray-500 text-base font-medium mt-1">Statusüberwachung, Stornierungen & Zahlungsverwaltung</p>
           </div>
         </div>
+      </div>
+
+      {/* Filter Toolbar */}
+      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6 flex flex-wrap gap-4 items-center animate-in slide-in-from-top-4">
+        
+        {/* Suche */}
+        <div className="relative flex-1 min-w-[200px]">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-4 w-4 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="Suchen (Name, E-Mail, ID)..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#c02a2a] focus:border-transparent text-sm"
+          />
+        </div>
+
+        {/* Datum */}
+        <div className="relative min-w-[150px]">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Calendar className="h-4 w-4 text-gray-400" />
+          </div>
+          <input
+            type="date"
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="pl-10 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#c02a2a] focus:border-transparent text-sm"
+          />
+        </div>
+
+        {/* Partner */}
+        <div className="relative min-w-[200px]">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Users className="h-4 w-4 text-gray-400" />
+          </div>
+          <select
+            value={filterPartnerId}
+            onChange={(e) => setFilterPartnerId(e.target.value)}
+            className="pl-10 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#c02a2a] focus:border-transparent text-sm appearance-none bg-white"
+          >
+            <option value="all">Alle Buchungen</option>
+            <option value="direct">Nur Direktbuchungen</option>
+            <optgroup label="Partner (B2B)">
+              {partners.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </optgroup>
+          </select>
+        </div>
+
+        {/* Reset Button */}
+        {(searchTerm || filterDate || filterPartnerId !== 'all') && (
+          <button
+            onClick={() => {
+              setSearchTerm('');
+              setFilterDate('');
+              setFilterPartnerId('all');
+            }}
+            className="text-sm text-gray-500 hover:text-[#c02a2a] underline px-2 transition-colors"
+          >
+            Filter zurücksetzen
+          </button>
+        )}
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>

@@ -62,10 +62,10 @@ export function Dashboard() {
         </div>
         {nextEvent && (
           <button 
-            onClick={() => navigate(`/events/${nextEvent.id}`)}
+            onClick={() => navigate('/booking')}
             className="flex items-center gap-2 bg-brand-primary text-white px-8 py-3.5 rounded-xl hover:bg-red-700 transition font-bold shadow-xl shadow-brand-primary/20 cursor-pointer animate-in zoom-in duration-300"
           >
-            Neue Buchung erfassen <ArrowRight className="w-5 h-5"/>
+            Neue Reservierung erfassen <ArrowRight className="w-5 h-5"/>
           </button>
         )}
       </div>

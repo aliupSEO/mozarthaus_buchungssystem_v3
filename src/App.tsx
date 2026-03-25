@@ -11,6 +11,7 @@ import { Partners } from './pages/Partners';
 import { PartnerTypes } from './pages/PartnerTypes';
 import { BookingFlow } from './components/booking/BookingFlow';
 import { SyncValidator } from './components/admin/SyncValidator';
+import { Statistics } from './pages/Statistics';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
           <Route path="new-booking" element={<BookingFlow />} />
           <Route path="kanban" element={<Kanban />} />
           <Route path="bookings" element={<Bookings />} />
+          <Route path="statistics" element={<Statistics />} />
           <Route path="partners" element={<Partners />} />
           <Route path="partner-types" element={<PartnerTypes />} />
           <Route path="tasks" element={<Tasks />} />

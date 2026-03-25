@@ -31,6 +31,7 @@ export function BookingFlow() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'paid'>('pending');
   
   // Section 4
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
@@ -100,7 +101,7 @@ export function BookingFlow() {
         partnerId: selectedPartnerId || null,
         isB2B: !!selectedPartnerId,
         source: selectedPartnerId ? 'b2b' : 'manual',
-        status: 'confirmed',
+        status: paymentStatus,
         tickets,
         customerData: { name: customerName, email: customerEmail },
         totalAmount: totalPrice
@@ -190,6 +191,36 @@ export function BookingFlow() {
              <div>
                <label className="block text-sm font-bold text-gray-700 mb-2">Gültige E-Mail Adresse</label>
                <input type="email" placeholder="max@example.com" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none shadow-sm" />
+             </div>
+           </div>
+           
+           <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+             <label className="block text-sm font-medium text-gray-700 mb-3">
+               Zahlungsstatus
+             </label>
+             <div className="flex gap-4">
+               <label className="flex items-center gap-2 cursor-pointer">
+                 <input
+                   type="radio"
+                   name="paymentStatus"
+                   value="pending"
+                   checked={paymentStatus === 'pending'}
+                   onChange={(e) => setPaymentStatus(e.target.value as 'pending' | 'paid')}
+                   className="text-[#c02a2a] focus:ring-[#c02a2a]"
+                 />
+                 <span className="text-sm text-gray-700">Noch offen (Zahlung ausstehend)</span>
+               </label>
+               <label className="flex items-center gap-2 cursor-pointer">
+                 <input
+                   type="radio"
+                   name="paymentStatus"
+                   value="paid"
+                   checked={paymentStatus === 'paid'}
+                   onChange={(e) => setPaymentStatus(e.target.value as 'pending' | 'paid')}
+                   className="text-[#c02a2a] focus:ring-[#c02a2a]"
+                 />
+                 <span className="text-sm text-gray-700">Bereits bezahlt</span>
+               </label>
              </div>
            </div>
         </div>

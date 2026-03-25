@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, Calendar, Users, Settings as SettingsIcon, LayoutDashboard, Ticket, Columns, ChevronDown, ChevronRight } from 'lucide-react';
+import { CalendarDays, Calendar, Users, Settings as SettingsIcon, LayoutDashboard, Ticket, Columns, ChevronDown, ChevronRight, BarChart } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -38,6 +38,7 @@ export function Sidebar() {
     { name: 'Events / Termine', path: '/events', icon: CalendarDays },
     { name: 'Kanban Board', path: '/kanban', icon: Columns },
     { name: 'Transaktions-Log', path: '/bookings', icon: Calendar },
+    { name: 'Statistiken', path: '/statistics', icon: BarChart },
     { 
       name: 'Partner', 
       icon: Users,

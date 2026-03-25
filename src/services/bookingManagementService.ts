@@ -60,7 +60,10 @@ export async function updateBookingStatus(
       }
 
       // Commit finalized booking object state modification payload
-      const updates: Partial<Booking> = { status: newStatus };
+      const updates: Partial<Booking> = { 
+        status: newStatus,
+        updatedAt: new Date().toISOString()
+      };
       if (paymentMethod) {
         updates.paymentMethod = paymentMethod;
       }
