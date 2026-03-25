@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchPartners } from '../../services/partnerService';
-import { createVariantBooking } from '../../services/bookingService';
+import { executeBookingTransaction } from '../../services/transactionService';
+import { SeatMap } from './SeatMap';
 import { Partner } from '../../types/schema';
 import { CalendarDays, Ticket, Building2, ChevronRight, CheckCircle2 } from 'lucide-react';
 
@@ -24,6 +25,10 @@ export function BookingFlow() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  
+  // Section 4
+  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
+  const derivedEventId = variant && bookingDate ? `${variant}_${bookingDate.replace(/-/g, '')}` : '';
 
   useEffect(() => {
     fetchPartners().then(setPartners);
@@ -35,6 +40,7 @@ export function BookingFlow() {
   const handleSubmit = async () => {
     if (!bookingDate) return alert("Bitte wähle ein Datum aus.");
     if (totalTickets === 0) return alert("Bitte wähle mindestens ein Ticket aus der Kategorie aus.");
+    if (selectedSeats.length !== totalTickets) return alert(`Bitte weise genau ${totalTickets} Sitzplätze im physischen Saalplan zu.`);
     if (!customerName || !customerEmail) return alert("Kundenname und Email sind zwingend erforderlich.");
 
     setIsSubmitting(true);
@@ -44,16 +50,16 @@ export function BookingFlow() {
       if (catB > 0) tickets.push({ categoryId: 'cat_b', quantity: catB });
       if (student > 0) tickets.push({ categoryId: 'student', quantity: student });
 
-      await createVariantBooking({
-        eventId: 'mozart_ensemble',
+      await executeBookingTransaction({
+        eventId: derivedEventId,
         variantId: variant,
         partnerId: selectedPartnerId || null,
         source: selectedPartnerId ? 'b2b' : 'manual',
-        status: 'pending',
+        status: 'confirmed',
         tickets,
         customerData: { name: customerName, email: customerEmail },
         totalAmount: totalPrice
-      });
+      }, selectedSeats);
       
       setSuccess(true);
       setTimeout(() => navigate('/bookings'), 3000);
@@ -180,6 +186,33 @@ export function BookingFlow() {
              </div>
            </div>
         </div>
+
+        {/* Sektion 4: Saalplan */}
+        <section className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1.5 h-full bg-purple-500 shadow-[0_0_10px_#a855f7]"></div>
+          <h2 className="text-xl font-bold text-gray-900 mb-8 flex items-center gap-2">
+            <Ticket className="w-6 h-6 text-purple-500"/> 4. Saalplan-Zuweisung ({selectedSeats.length} / {totalTickets} zugewiesen)
+          </h2>
+          
+          {totalTickets === 0 ? (
+            <div className="p-8 text-center text-gray-500 bg-gray-50 border border-dashed border-gray-300 rounded-xl font-medium">
+               👆 Bitte definieren Sie zuerst die Ticket-Anzahl in Sektion 3, um die Plätze physisch zuzuweisen.
+            </div>
+          ) : !bookingDate ? (
+            <div className="p-8 text-center text-gray-500 bg-gray-50 border border-dashed border-gray-300 rounded-xl font-medium">
+               👆 Bitte wählen Sie zuerst ein Konzertdatum in Sektion 1, um den tagesaktuellen Saalplan zu laden.
+            </div>
+          ) : (
+            <div className="overflow-hidden">
+               <SeatMap 
+                 eventId={derivedEventId}
+                 requiredSeats={totalTickets}
+                 selectedSeats={selectedSeats}
+                 onSeatSelect={setSelectedSeats}
+               />
+            </div>
+          )}
+        </section>
 
         {/* Checkout Bar */}
         <div className="bg-gray-900 p-8 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-6 shadow-2xl relative overflow-hidden">
