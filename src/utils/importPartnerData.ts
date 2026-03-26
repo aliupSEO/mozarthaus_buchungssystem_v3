@@ -386,7 +386,7 @@ export async function runPartnerImport() {
   for (let i = 0; i < chunks.length; i++) {
     const batch = writeBatch(db);
     for (const record of chunks[i]) {
-      const docRef = doc(db, `apps/${APP_ID}/partner`, record.id);
+      const docRef = doc(db, `apps/${APP_ID}/partners`, record.id);
       batch.set(docRef, record.data);
     }
     await batch.commit();
