@@ -19,7 +19,11 @@ export function Bookings() {
     const unsubscribe = onSnapshot(q, (snap) => {
       const b: Booking[] = [];
       snap.forEach(doc => b.push({ id: doc.id, ...doc.data() } as Booking));
-      b.sort((x, y) => y.createdAt.toMillis() - x.createdAt.toMillis());
+      b.sort((x, y) => {
+        const timeX = (x.createdAt as any)?.toMillis ? (x.createdAt as any).toMillis() : new Date(x.createdAt as any).getTime();
+        const timeY = (y.createdAt as any)?.toMillis ? (y.createdAt as any).toMillis() : new Date(y.createdAt as any).getTime();
+        return timeY - timeX;
+      });
       setBookings(b);
     });
     return () => unsubscribe();
@@ -101,7 +105,11 @@ export function Bookings() {
                <tr key={b.id} className="hover:bg-gray-50 transition-colors">
                  <td className="p-4">
                    <div className="font-medium text-gray-900">{b.id.split('-').pop()}</div>
-                   <div className="text-xs text-gray-500">{b.createdAt.toDate().toLocaleString('de-AT')}</div>
+                   <div className="text-xs text-gray-500">
+                     {(b.createdAt as any)?.toDate 
+                       ? (b.createdAt as any).toDate().toLocaleString('de-AT') 
+                       : new Date(b.createdAt as any).toLocaleString('de-AT')}
+                   </div>
                    <div className="text-xs text-brand-primary mt-1">{b.eventId}</div>
                  </td>
                  <td className="p-4">
