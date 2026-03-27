@@ -62,6 +62,7 @@ export function PricingCategories() {
               <th className="p-4 font-bold">ID / Alias</th>
               <th className="p-4 font-bold">Name</th>
               <th className="p-4 font-bold">Preis</th>
+              <th className="p-4 font-bold">Regiondo ID</th>
               <th className="p-4 font-bold text-center">Aktiv</th>
               <th className="p-4 font-bold text-right">Aktionen</th>
             </tr>
@@ -75,6 +76,15 @@ export function PricingCategories() {
                 <td className="p-4 font-mono text-sm text-gray-600">{cat.id}</td>
                 <td className="p-4 font-medium text-gray-900">{cat.name}</td>
                 <td className="p-4 font-bold text-gray-900">€{cat.price.toFixed(2)}</td>
+                <td className="p-4">
+                  {cat.regiondoOptionId ? (
+                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-bold rounded-lg bg-red-100 text-red-800 border border-red-200">
+                      {cat.regiondoOptionId}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 font-medium">-</span>
+                  )}
+                </td>
                 <td className="p-4 text-center">
                   {cat.isActive ? <Check className="w-5 h-5 text-green-500 mx-auto" /> : <X className="w-5 h-5 text-gray-400 mx-auto" />}
                 </td>
@@ -92,7 +102,7 @@ export function PricingCategories() {
             ))}
             {categories.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-gray-500">Keine Kategorien angelegt. Bitte erstelle die Standard-Kategorien.</td>
+                <td colSpan={7} className="p-8 text-center text-gray-500">Keine Kategorien angelegt. Bitte erstelle die Standard-Kategorien.</td>
               </tr>
             )}
           </tbody>
