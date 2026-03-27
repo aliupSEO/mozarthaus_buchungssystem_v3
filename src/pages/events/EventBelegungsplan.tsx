@@ -74,6 +74,16 @@ export function EventBelegungsplan() {
     .filter(b => b.status !== 'cancelled')
     .flatMap(b => b.seatIds || []);
 
+  const groupTicketsCount = bookings
+    .filter(b => b.status !== 'cancelled' && (!b.seatIds || b.seatIds.length === 0))
+    .reduce((sum, b) => {
+       if (b.groupPersons) return sum + b.groupPersons;
+       if (b.tickets) return sum + b.tickets.reduce((s: number, t: any) => s + (t.quantity || 1), 0);
+       return sum;
+    }, 0);
+    
+  const totalBooked = bookedSeatIds.length + groupTicketsCount;
+
   const eventDateStr = typeof event.date !== 'string' && (event.date as any)?.toDate 
     ? (event.date as any).toDate().toLocaleDateString('de-AT', { dateStyle: 'full' }) 
     : String(event.date);
@@ -131,7 +141,7 @@ export function EventBelegungsplan() {
             <Users className="w-5 h-5 text-gray-400" />
             Visueller Saalplan
             <span className="text-sm font-bold bg-brand-primary text-white px-2 py-0.5 rounded-full ml-auto">
-              {bookedSeatIds.length} belegt
+              {totalBooked} belegt
             </span>
           </h2>
           <SeatingChartVisual eventId={eventId!} bookedSeatIds={bookedSeatIds} />

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, onSnapshot, doc, writeBatch, Timestamp } from 'firebase/firestore';
+import { collection, onSnapshot, doc, writeBatch, Timestamp, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
 import { Event } from '../types/schema';
@@ -11,18 +11,37 @@ function EventOccupancy({ eventId }: { eventId: string }) {
   const [occupancy, setOccupancy] = useState({ booked: 0, total: 0 });
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, `apps/${APP_ID}/events/${eventId}/seats`), (snap) => {
+    // 1. Physische Sitze laden
+    const unsubSeats = onSnapshot(collection(db, `apps/${APP_ID}/events/${eventId}/seats`), (snap) => {
       let total = 0;
-      let booked = 0;
+      let seatsBooked = 0;
       snap.forEach(doc => {
         total++;
         if (doc.data().status !== 'available') {
-          booked++;
+          seatsBooked++;
         }
       });
-      setOccupancy({ booked, total });
+      
+      // 2. Gruppenbuchungen (ohne feste Sitze) laden und addieren
+      const q = query(collection(db, `apps/${APP_ID}/bookings`), where('eventId', '==', eventId), where('status', '==', 'confirmed'));
+      const unsubBookings = onSnapshot(q, (bookingSnap) => {
+         let groupTickets = 0;
+         bookingSnap.forEach(bDoc => {
+            const b = bDoc.data();
+            if (!b.seatIds || b.seatIds.length === 0) {
+               if (b.groupPersons) {
+                 groupTickets += b.groupPersons;
+               } else if (b.tickets) {
+                 b.tickets.forEach((t: any) => groupTickets += (t.quantity || 1));
+               }
+            }
+         });
+         setOccupancy({ booked: seatsBooked + groupTickets, total });
+      });
+      
+      return () => unsubBookings();
     });
-    return () => unsub();
+    return () => unsubSeats();
   }, [eventId]);
 
   if (occupancy.total === 0) return <span className="text-gray-400 text-sm">-</span>;

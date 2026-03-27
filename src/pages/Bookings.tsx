@@ -88,8 +88,8 @@ export function Bookings() {
         </div>
       </div>
 
-      <div className="bg-white rounded-b-lg shadow-sm border border-gray-200 overflow-hidden">
-        <table className="w-full text-left border-collapse text-sm">
+      <div className="overflow-x-auto w-full bg-white shadow-sm rounded-b-lg border border-gray-200">
+        <table className="w-full text-left border-collapse text-sm min-w-[1000px]">
           <thead>
             <tr className="bg-gray-100 border-b border-gray-300 text-xs font-bold text-gray-700 uppercase tracking-wider">
               <th className="p-3 border-r border-gray-200">ID</th>
