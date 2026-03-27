@@ -38,6 +38,20 @@ const formatRawDate = (dateVal: any) => {
   return '-';
 };
 
+// Übersetzt Regiondo Option-IDs in lesbare Kategorienamen
+const getCategoryName = (categoryId?: string) => {
+  if (!categoryId) return '';
+  
+  const categoryMap: Record<string, string> = {
+    '1549178': 'Kategorie A',
+    '1549179': 'Kategorie B',
+    '1549180': 'Kategorie C', // Beispiel, falls vorhanden
+    '1549181': 'Student',     // Beispiel, falls vorhanden
+  };
+
+  return categoryMap[categoryId] || `ID: ${categoryId}`;
+};
+
 export function Bookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -176,8 +190,8 @@ export function Bookings() {
                        )}
                      </div>
                      {(b.categoryId || (b.tickets && b.tickets[0]?.categoryId)) && (
-                       <div className="text-xs text-gray-500 mt-1 uppercase">
-                         Kat: {b.categoryId || b.tickets?.[0]?.categoryId}
+                       <div className="text-xs text-brand-primary mt-1 font-semibold uppercase">
+                         {getCategoryName(b.categoryId || b.tickets?.[0]?.categoryId)}
                        </div>
                      )}
                    </td>
