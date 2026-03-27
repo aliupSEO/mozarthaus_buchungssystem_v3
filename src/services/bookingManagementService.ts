@@ -15,7 +15,11 @@ export function subscribeToBookings(callback: (bookings: Booking[]) => void) {
       list.push({ ...d.data(), id: d.id } as Booking);
     });
     // Optional: Sort descending by natural date
-    list.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+    list.sort((a, b) => {
+      const timeB = (b.createdAt as any)?.toMillis ? (b.createdAt as any).toMillis() : new Date(b.createdAt as any || 0).getTime();
+      const timeA = (a.createdAt as any)?.toMillis ? (a.createdAt as any).toMillis() : new Date(a.createdAt as any || 0).getTime();
+      return timeB - timeA;
+    });
     callback(list);
   }, (error) => {
     console.error('Board Sync Failed:', error);

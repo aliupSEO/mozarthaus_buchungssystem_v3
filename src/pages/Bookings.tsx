@@ -106,7 +106,7 @@ export function Bookings() {
              ) : filteredBookings.map(b => (
                <tr key={b.id} className="hover:bg-gray-50 transition-colors">
                  <td className="p-4">
-                   <div className="font-medium text-gray-900">{b.id.split('-').pop()}</div>
+                   <div className="font-medium text-gray-900">{b.id?.split('-')?.pop() || 'IMPORT'}</div>
                    <div className="text-xs text-gray-500">
                      {(b.createdAt as any)?.toDate 
                        ? (b.createdAt as any).toDate().toLocaleString('de-AT') 
