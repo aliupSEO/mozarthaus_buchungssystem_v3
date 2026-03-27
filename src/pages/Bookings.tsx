@@ -115,9 +115,14 @@ export function Bookings() {
                    )}
                  </td>
                  <td className="p-4 max-w-xs">
-                   {/* NEU: Unterscheidung zwischen Einzelplätzen und Pauschal-Personen */}
-                   {b.bookingType === 'einzel' || !b.bookingType ? (
-                     <>
+                   {b.bookingType === 'einzel' || b.bookingType === 'gruppe' || !b.bookingType ? (
+                     <div className="flex flex-col gap-2">
+                       {b.bookingType === 'gruppe' && (
+                         <div className="flex items-center gap-2 bg-blue-50 p-1.5 rounded-md border border-blue-100 w-fit mb-1">
+                           <Users className="w-3.5 h-3.5 text-blue-500" />
+                           <span className="text-xs font-medium text-blue-700">{b.groupPersons} Personen (Gruppe)</span>
+                         </div>
+                       )}
                        <div className="flex flex-wrap gap-1">
                          {b.seatIds?.map(sid => (
                            <span key={sid} className="bg-gray-100 border border-gray-200 text-gray-700 text-[10px] px-1.5 py-0.5 rounded uppercase">
@@ -125,12 +130,12 @@ export function Bookings() {
                            </span>
                          ))}
                        </div>
-                       <div className="text-xs text-gray-500 mt-1">{b.seatIds?.length || 0} Platz/Plätze</div>
-                     </>
+                       <div className="text-xs text-gray-500">{b.seatIds?.length || 0} Platz/Plätze</div>
+                     </div>
                    ) : (
                      <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-200 w-fit">
-                       {b.bookingType === 'gruppe' ? <Users className="w-4 h-4 text-blue-500" /> : <UsersRound className="w-4 h-4 text-purple-500" />}
-                       <span className="font-medium text-gray-700">{b.groupPersons} Personen (Pauschal)</span>
+                       <UsersRound className="w-4 h-4 text-purple-500" />
+                       <span className="font-medium text-gray-700">{b.groupPersons} Personen (Privat)</span>
                      </div>
                    )}
                  </td>

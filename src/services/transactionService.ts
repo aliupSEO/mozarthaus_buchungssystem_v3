@@ -25,8 +25,8 @@ export async function executeBookingTransaction(
 
   try {
     await runTransaction(db, async (transaction) => {
-      // Nur für Einzelbuchungen Sitzplätze prüfen und blockieren
-      if (bookingData.bookingType === 'einzel' && selectedSeatIds.length > 0) {
+      // Nur für Einzelbuchungen und Gruppenbuchungen Sitzplätze prüfen und blockieren
+      if ((bookingData.bookingType === 'einzel' || bookingData.bookingType === 'gruppe') && selectedSeatIds.length > 0) {
         // Phase 1: Read lock targeting specific seat docs
         const seatRefs = selectedSeatIds.map(id => doc(db, seatsColPath, id));
         const seatDocs = await Promise.all(seatRefs.map(ref => transaction.get(ref)));
@@ -55,7 +55,7 @@ export async function executeBookingTransaction(
       const newBooking: Booking = {
         ...bookingData,
         id: bookingId,
-        seatIds: bookingData.bookingType === 'einzel' ? selectedSeatIds : [],
+        seatIds: (bookingData.bookingType === 'einzel' || bookingData.bookingType === 'gruppe') ? selectedSeatIds : [],
         createdAt: Timestamp.now()
       };
       transaction.set(bookingRef, newBooking);

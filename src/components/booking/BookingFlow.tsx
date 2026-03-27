@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { onSnapshot, collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { APP_ID } from '../../lib/constants';
 import { useNavigate } from 'react-router-dom';
@@ -26,6 +26,9 @@ export function BookingFlow() {
   const [contactPerson, setContactPerson] = useState('');
   const [groupPersons, setGroupPersons] = useState<number | ''>('');
   const [customTotalPrice, setCustomTotalPrice] = useState<number | ''>('');
+  
+  const [privateEventDate, setPrivateEventDate] = useState('');
+  const [privateEventTime, setPrivateEventTime] = useState('');
   
   // Section 3
   const [categories, setCategories] = useState<TicketCategory[]>([]);
@@ -133,9 +136,15 @@ export function BookingFlow() {
       if (!selectedPartnerId) return alert("Bitte wähle einen Partner für die Gruppenbuchung aus.");
       if (!sellerReference || !contactPerson) return alert("Verkäuferreferenz und Kontaktperson sind erforderlich.");
       if (!groupPersons || !customTotalPrice) return alert("Personenanzahl und Gesamtpreis sind erforderlich.");
+      if (selectedSeats.length !== totalTickets) return alert(`Bitte weise genau ${totalTickets} Sitzplätze im physischen Saalplan zu.`);
     } else if (bookingType === 'privat') {
       if (!customerName || !customerEmail) return alert("Kundenname und Email sind zwingend erforderlich.");
       if (!groupPersons || !customTotalPrice) return alert("Personenanzahl und Gesamtpreis sind erforderlich.");
+      if (!privateEventDate || !privateEventTime) return alert("Bitte Datum und Uhrzeit für das Privat-Event angeben.");
+    }
+
+    if (bookingType !== 'privat') {
+      if (!selectedEventId) return alert("Bitte wähle ein Konzert aus.");
     }
 
     setIsSubmitting(true);
@@ -146,16 +155,38 @@ export function BookingFlow() {
 
       const selectedEvent = availableEvents.find(e => e.id === selectedEventId);
 
-      const eventDateRaw = selectedEvent?.date;
-      const eventDateStr = eventDateRaw 
-        ? (typeof (eventDateRaw as any).toDate === 'function' ? (eventDateRaw as any).toDate().toISOString() : eventDateRaw as string) 
-        : '';
+      let finalEventId = selectedEventId;
+      let finalVariantId = variant;
+      let finalEventTitle = selectedEvent?.title || '';
+      let finalEventDateStr = '';
+
+      if (bookingType === 'privat') {
+        // Generiere eine lesbare, slugifizierte ID für das neue Event
+        finalEventId = `privat_${privateEventDate.replace(/-/g, '_')}_${privateEventTime.replace(':', '')}`;
+        finalVariantId = 'privat';
+        finalEventTitle = `Privat Event - ${customerName}`;
+        finalEventDateStr = `${privateEventDate}T${privateEventTime}:00.000Z`;
+        
+        // Neues Event-Dokument on-the-fly in Firestore anlegen
+        await setDoc(doc(db, `apps/${APP_ID}/events`, finalEventId), {
+          title: finalEventTitle,
+          date: privateEventDate,
+          time: privateEventTime,
+          status: 'active',
+          type: 'privat'
+        });
+      } else {
+        const eventDateRaw = selectedEvent?.date;
+        finalEventDateStr = eventDateRaw 
+          ? (typeof (eventDateRaw as any).toDate === 'function' ? (eventDateRaw as any).toDate().toISOString() : eventDateRaw as string) 
+          : '';
+      }
 
       await executeBookingTransaction({
-        eventId: derivedEventId,
-        variantId: variant,
-        eventTitle: selectedEvent?.title || '',
-        eventDate: eventDateStr,
+        eventId: finalEventId,
+        variantId: finalVariantId,
+        eventTitle: finalEventTitle,
+        eventDate: finalEventDateStr,
         partnerId: selectedPartnerId || null,
         isB2B: !!selectedPartnerId,
         source: selectedPartnerId ? 'b2b' : 'manual',
@@ -168,7 +199,7 @@ export function BookingFlow() {
         tickets,
         customerData: { name: customerName, email: customerEmail },
         totalAmount: totalPrice
-      }, bookingType === 'einzel' ? selectedSeats : []);
+      }, (bookingType === 'einzel' || bookingType === 'gruppe') ? selectedSeats : []);
       
       setSuccess(true);
       setTimeout(() => navigate('/bookings'), 3000);
@@ -218,30 +249,43 @@ export function BookingFlow() {
         </h2>
         
         <div className="grid grid-cols-1 gap-6">
-           <div>
-             <label className="block text-sm font-bold text-gray-700 mb-2">Konzert / Event auswählen</label>
-             <select 
-               value={selectedEventId} 
-               onChange={e => setSelectedEventId(e.target.value)} 
-               className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none bg-gray-50 text-gray-900 font-bold cursor-pointer transition-shadow shadow-inner"
-             >
-               <option value="">-- Bitte wählen --</option>
-               {availableEvents.map(e => {
-                 let displayDate = '';
-                 if (e.date && typeof (e.date as any).toDate === 'function') {
-                   displayDate = (e.date as any).toDate().toLocaleDateString('de-AT');
-                 } else if (e.date) {
-                   displayDate = new Date(e.date as string).toLocaleDateString('de-AT');
-                 }
-                 
-                 return (
-                   <option key={e.id} value={e.id}>
-                     {displayDate} {(e as any).time ? `- ${(e as any).time} Uhr` : ''} — {e.title || 'Mozart Ensemble'}
-                   </option>
-                 );
-               })}
-             </select>
-           </div>
+          {bookingType === 'privat' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Datum des Privat-Events</label>
+                <input type="date" value={privateEventDate} onChange={e => setPrivateEventDate(e.target.value)} className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none shadow-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Uhrzeit</label>
+                <input type="time" value={privateEventTime} onChange={e => setPrivateEventTime(e.target.value)} className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none shadow-sm" />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Konzert / Event auswählen</label>
+              <select 
+                value={selectedEventId} 
+                onChange={e => setSelectedEventId(e.target.value)} 
+                className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none bg-gray-50 text-gray-900 font-bold cursor-pointer transition-shadow shadow-inner"
+              >
+                <option value="">-- Bitte wählen --</option>
+                {availableEvents.map(e => {
+                  let displayDate = '';
+                  if (e.date && typeof (e.date as any).toDate === 'function') {
+                    displayDate = (e.date as any).toDate().toLocaleDateString('de-AT');
+                  } else if (e.date) {
+                    displayDate = new Date(e.date as string).toLocaleDateString('de-AT');
+                  }
+                  
+                  return (
+                    <option key={e.id} value={e.id}>
+                      {displayDate} {(e as any).time ? `- ${(e as any).time} Uhr` : ''} — {e.title || 'Mozart Ensemble'}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
         </div>
       </section>
 
@@ -308,7 +352,6 @@ export function BookingFlow() {
 
       {/* Sektion 3: Tickets */}
       {bookingType === 'einzel' && (
-      <>
       <section className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500 shadow-[0_0_10px_#10b981]"></div>
         <h2 className="text-xl font-bold text-gray-900 mb-8 flex items-center gap-2">
@@ -335,7 +378,10 @@ export function BookingFlow() {
            )}
          </div> 
       </section>
-        {/* Sektion 4: Saalplan */}
+      )}
+
+      {/* Sektion 4: Saalplan */}
+      {(bookingType === 'einzel' || bookingType === 'gruppe') && (
         <section className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-1.5 h-full bg-purple-500 shadow-[0_0_10px_#a855f7]"></div>
           <h2 className="text-xl font-bold text-gray-900 mb-8 flex items-center gap-2">
@@ -344,7 +390,7 @@ export function BookingFlow() {
           
           {totalTickets === 0 ? (
             <div className="p-8 text-center text-gray-500 bg-gray-50 border border-dashed border-gray-300 rounded-xl font-medium">
-               👆 Bitte definieren Sie zuerst die Ticket-Anzahl in Sektion 3, um die Plätze physisch zuzuweisen.
+               👆 Bitte definieren Sie zuerst die Ticket-Anzahl {bookingType === 'einzel' ? 'in Sektion 3' : 'in den Pauschal-Details'}, um die Plätze physisch zuzuweisen.
             </div>
           ) : !selectedEventId ? (
             <div className="p-8 text-center text-gray-500 bg-gray-50 border border-dashed border-gray-300 rounded-xl font-medium">
@@ -362,7 +408,6 @@ export function BookingFlow() {
             </div>
           )}
         </section>
-      </>
       )}
 
       {bookingType !== 'einzel' && (
