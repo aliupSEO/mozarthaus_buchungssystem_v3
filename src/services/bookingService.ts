@@ -8,6 +8,32 @@ import { triggerN8nOutboundSync } from './n8nService';
 
 const getAppPath = () => `apps/${APP_ID}`;
 
+async function getNextBookingNumber(transaction: any): Promise<string> {
+  const year = new Date().getFullYear().toString();
+  const counterRef = doc(db, `${getAppPath()}/counters`, 'booking_numbers');
+  
+  const counterDoc = await transaction.get(counterRef);
+  let currentNumber = 0;
+
+  if (counterDoc.exists()) {
+    const data = counterDoc.data();
+    // Wenn wir im selben Jahr sind, zähle weiter. Sonst fange bei 0 an.
+    if (data.year === year) {
+      currentNumber = data.lastNumber || 0;
+    }
+  }
+
+  const nextNumber = currentNumber + 1;
+  
+  // Speichere den neuen Stand
+  transaction.set(counterRef, {
+    year: year,
+    lastNumber: nextNumber
+  }, { merge: true });
+
+  return `${year}-${nextNumber}`;
+}
+
 /**
  * Initializes all seat documents for a newly created event.
  * Writes to subcollection: apps/.../events/{eventId}/seats
@@ -77,9 +103,12 @@ export async function createBooking(
       });
 
       // 4. Create the Booking document
+      const bookingNumber = await getNextBookingNumber(transaction); // NEU
+      
       const newBooking: Booking = {
         ...bookingData,
         id: bookingId,
+        bookingNumber: bookingNumber, // NEU
         eventId,
         seatIds,
         createdAt: Timestamp.now()

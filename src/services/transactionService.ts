@@ -11,6 +11,32 @@ const generateBookingId = () => {
   return `${prefix}-${timestamp}-${random}`;
 };
 
+async function getNextBookingNumber(transaction: any): Promise<string> {
+  const year = new Date().getFullYear().toString();
+  const counterRef = doc(db, `apps/${APP_ID}/counters`, 'booking_numbers');
+  
+  const counterDoc = await transaction.get(counterRef);
+  let currentNumber = 0;
+
+  if (counterDoc.exists()) {
+    const data = counterDoc.data();
+    // Wenn wir im selben Jahr sind, zähle weiter. Sonst fange bei 0 an.
+    if (data.year === year) {
+      currentNumber = data.lastNumber || 0;
+    }
+  }
+
+  const nextNumber = currentNumber + 1;
+  
+  // Speichere den neuen Stand
+  transaction.set(counterRef, {
+    year: year,
+    lastNumber: nextNumber
+  }, { merge: true });
+
+  return `${year}-${nextNumber}`;
+}
+
 /**
  * Ensures strict cross-client data integrity when finalizing reservations.
  * Atomically checks seat statuses, blocks them, and emits the Booking document.
@@ -53,10 +79,13 @@ export async function executeBookingTransaction(
         });
       }
 
+      const generatedBookingNumber = await getNextBookingNumber(transaction);
+
       // Emit final booking payload
       const newBooking: Booking = {
         ...bookingData,
         id: bookingId,
+        bookingNumber: bookingData.bookingNumber || generatedBookingNumber,
         seatIds: (bookingData.bookingType === 'einzel' || bookingData.bookingType === 'gruppe') ? selectedSeatIds : [],
         createdAt: Timestamp.now()
       };

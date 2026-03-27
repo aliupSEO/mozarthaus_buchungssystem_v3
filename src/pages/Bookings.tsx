@@ -5,6 +5,38 @@ import { APP_ID } from '../lib/constants';
 import { Booking } from '../types/schema';
 import { cancelBooking } from '../services/bookingService';
 import { Search, Filter } from 'lucide-react';
+// Verhindert Zeitzonen-Verschiebungen und zeigt Regiondo-Strings 1:1 an
+const formatRawDate = (dateVal: any) => {
+  if (!dateVal) return '-';
+  
+  // 1. Fall: Natives Firebase Timestamp Objekt (aus der App selbst)
+  if (dateVal.toDate) {
+    return dateVal.toDate().toLocaleString('de-AT', { 
+      day: '2-digit', month: '2-digit', year: 'numeric', 
+      hour: '2-digit', minute: '2-digit' 
+    }) + ' Uhr';
+  }
+  
+  // 2. Fall: Raw String aus Regiondo (z.B. "2026-06-10 20:00:00")
+  if (typeof dateVal === 'string') {
+    const match = dateVal.match(/^(\d{4})-(\d{2})-(\d{2})\s(\d{2}):(\d{2})/);
+    if (match) {
+      // Exakt 1:1 Mapping: DD.MM.YYYY, HH:MM Uhr
+      return `${match[3]}.${match[2]}.${match[1]}, ${match[4]}:${match[5]} Uhr`;
+    }
+    // Fallback, falls der String ein anderes Format hat
+    try {
+      return new Date(dateVal).toLocaleString('de-AT', { 
+        day: '2-digit', month: '2-digit', year: 'numeric', 
+        hour: '2-digit', minute: '2-digit' 
+      }) + ' Uhr';
+    } catch (e) {
+      return dateVal;
+    }
+  }
+  
+  return '-';
+};
 
 export function Bookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -110,16 +142,19 @@ export function Bookings() {
                ) : filteredBookings.map(b => (
                  <tr key={b.id} className="hover:bg-gray-50 transition-colors">
                    <td className="p-3 border-r border-gray-200 font-mono text-xs text-gray-600 break-all min-w-[140px]">
-                     {b.id?.replace('booking_regiondo_', '') || b.id}
+                     <span className="font-bold text-gray-900 block mb-1">
+                       {b.bookingNumber || '-'}
+                     </span>
+                     <span className="text-[10px] text-gray-400">
+                       {b.id?.replace('booking_regiondo_', '') || b.id}
+                     </span>
                    </td>
                    <td className="p-3 border-r border-gray-200 whitespace-nowrap text-gray-700">
-                     {(b.createdAt as any)?.toDate 
-                       ? (b.createdAt as any).toDate().toLocaleString('de-AT') 
-                       : new Date(b.createdAt as any).toLocaleString('de-AT')}
+                     {formatRawDate(b.createdAt)}
                    </td>
                    <td className="p-3 border-r border-gray-200 min-w-[180px]">
-                     <div className="font-medium text-brand-primary">{b.eventId}</div>
-                     {b.dateTime && <div className="text-xs text-gray-500">{typeof b.dateTime === 'object' && (b.dateTime as any).toDate ? (b.dateTime as any).toDate().toLocaleString('de-AT') : String(b.dateTime)}</div>}
+                     <div className="font-medium text-brand-primary">{String(b.eventId || '')}</div>
+                     {b.dateTime && <div className="text-xs text-gray-500">{formatRawDate(b.dateTime)}</div>}
                    </td>
                    <td className="p-3 border-r border-gray-200 font-medium text-gray-900 min-w-[140px]">
                      {b.customerData?.name || '-'}

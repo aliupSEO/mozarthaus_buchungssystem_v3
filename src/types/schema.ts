@@ -29,6 +29,7 @@ export interface Seat {
 
 export interface Booking {
   id: string;
+  bookingNumber?: string; // NEU: Fortlaufende Nummer (z.B. 2026-1) oder Regiondo Order-ID
   eventId: string;
   variantId?: string;
   partnerId: string | null;
