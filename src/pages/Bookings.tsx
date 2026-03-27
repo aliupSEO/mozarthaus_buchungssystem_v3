@@ -4,7 +4,7 @@ import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
 import { Booking } from '../types/schema';
 import { cancelBooking } from '../services/bookingService';
-import { Search, Filter, Ban } from 'lucide-react';
+import { Search, Filter, Ban, Users, UsersRound } from 'lucide-react';
 
 export function Bookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -107,28 +107,54 @@ export function Bookings() {
                  <td className="p-4">
                    <div className="font-medium">{b.customerData.name}</div>
                    <div className="text-gray-500">{b.customerData.email}</div>
+                   {/* NEU: Zusätzliche Infos für Gruppenbuchungen */}
+                   {b.bookingType === 'gruppe' && (
+                     <div className="text-xs text-blue-600 mt-1 font-medium">
+                       Ref: {b.sellerReference} | Kontakt: {b.contactPerson}
+                     </div>
+                   )}
                  </td>
                  <td className="p-4 max-w-xs">
-                   <div className="flex flex-wrap gap-1">
-                     {b.seatIds?.map(sid => (
-                       <span key={sid} className="bg-gray-100 border border-gray-200 text-gray-700 text-[10px] px-1.5 py-0.5 rounded uppercase">
-                         {sid.replace(/row_|_seat_/g, ' ')}
-                       </span>
-                     ))}
-                   </div>
-                   <div className="text-xs text-gray-500 mt-1">{b.seatIds?.length || 0} Platz/Plätze</div>
+                   {/* NEU: Unterscheidung zwischen Einzelplätzen und Pauschal-Personen */}
+                   {b.bookingType === 'einzel' || !b.bookingType ? (
+                     <>
+                       <div className="flex flex-wrap gap-1">
+                         {b.seatIds?.map(sid => (
+                           <span key={sid} className="bg-gray-100 border border-gray-200 text-gray-700 text-[10px] px-1.5 py-0.5 rounded uppercase">
+                             {sid.replace(/row_|_seat_/g, ' ')}
+                           </span>
+                         ))}
+                       </div>
+                       <div className="text-xs text-gray-500 mt-1">{b.seatIds?.length || 0} Platz/Plätze</div>
+                     </>
+                   ) : (
+                     <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-200 w-fit">
+                       {b.bookingType === 'gruppe' ? <Users className="w-4 h-4 text-blue-500" /> : <UsersRound className="w-4 h-4 text-purple-500" />}
+                       <span className="font-medium text-gray-700">{b.groupPersons} Personen (Pauschal)</span>
+                     </div>
+                   )}
                  </td>
                  <td className="p-4 font-bold">
                    € {calculateTotal(b).toFixed(2)}
                  </td>
                  <td className="p-4">
-                   <div className="mb-1">
+                   <div className="mb-1 flex flex-wrap gap-1">
                      <span className="px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200">
                        {b.source.toUpperCase()}
                      </span>
+                     {/* NEU: Badge für den Buchungstyp */}
+                     {b.bookingType && (
+                       <span className={`px-2 py-0.5 rounded text-xs font-medium border ${
+                         b.bookingType === 'einzel' ? 'bg-gray-50 text-gray-700 border-gray-200' : 
+                         b.bookingType === 'gruppe' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
+                         'bg-purple-50 text-purple-700 border-purple-200'
+                       }`}>
+                         {b.bookingType.toUpperCase()}
+                       </span>
+                     )}
                    </div>
                    <div>
-                     <span className={`px-2 py-0.5 rounded text-xs font-medium border ${b.status === 'confirmed' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                     <span className={`px-2 py-0.5 rounded text-xs font-medium border ${b.status === 'confirmed' ? 'bg-green-50 text-green-700 border-green-200' : b.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
                        {b.status.toUpperCase()}
                      </span>
                    </div>

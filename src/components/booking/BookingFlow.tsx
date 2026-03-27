@@ -7,7 +7,7 @@ import { executeBookingTransaction } from '../../services/transactionService';
 import { Event, TicketCategory } from '../../types/schema';
 import { listenTicketCategories } from '../../services/firebase/pricingService';
 import { SeatMap } from './SeatMap';
-import { CalendarDays, Ticket, Building2, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { CalendarDays, Ticket, Building2, ChevronRight, CheckCircle2, Users, User, UsersRound } from 'lucide-react';
 
 export function BookingFlow() {
   const navigate = useNavigate();
@@ -21,13 +21,18 @@ export function BookingFlow() {
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   
+  const [bookingType, setBookingType] = useState<'einzel' | 'gruppe' | 'privat'>('einzel');
+  const [sellerReference, setSellerReference] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
+  const [groupPersons, setGroupPersons] = useState<number | ''>('');
+  const [customTotalPrice, setCustomTotalPrice] = useState<number | ''>('');
+  
   // Section 3
   const [categories, setCategories] = useState<TicketCategory[]>([]);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'paid'>('pending');
   
   // Section 4
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
@@ -98,11 +103,17 @@ export function BookingFlow() {
 
   let totalPrice = 0;
   let totalTickets = 0;
-  categories.forEach(c => {
-    const q = quantities[c.id] || 0;
-    totalPrice += q * c.price;
-    totalTickets += q;
-  });
+  
+  if (bookingType === 'einzel') {
+    categories.forEach(c => {
+      const q = quantities[c.id] || 0;
+      totalPrice += q * c.price;
+      totalTickets += q;
+    });
+  } else {
+    totalPrice = Number(customTotalPrice) || 0;
+    totalTickets = Number(groupPersons) || 0;
+  }
 
   const categoryAllocations = categories.map(c => ({
     id: c.id,
@@ -113,15 +124,25 @@ export function BookingFlow() {
 
   const handleSubmit = async () => {
     if (!selectedEventId) return alert("Bitte wähle ein Konzert aus.");
-    if (totalTickets === 0) return alert("Bitte wähle mindestens ein Ticket aus der Kategorie aus.");
-    if (selectedSeats.length !== totalTickets) return alert(`Bitte weise genau ${totalTickets} Sitzplätze im physischen Saalplan zu.`);
-    if (!customerName || !customerEmail) return alert("Kundenname und Email sind zwingend erforderlich.");
+    
+    if (bookingType === 'einzel') {
+      if (totalTickets === 0) return alert("Bitte wähle mindestens ein Ticket aus der Kategorie aus.");
+      if (selectedSeats.length !== totalTickets) return alert(`Bitte weise genau ${totalTickets} Sitzplätze im physischen Saalplan zu.`);
+      if (!customerName || !customerEmail) return alert("Kundenname und Email sind zwingend erforderlich.");
+    } else if (bookingType === 'gruppe') {
+      if (!selectedPartnerId) return alert("Bitte wähle einen Partner für die Gruppenbuchung aus.");
+      if (!sellerReference || !contactPerson) return alert("Verkäuferreferenz und Kontaktperson sind erforderlich.");
+      if (!groupPersons || !customTotalPrice) return alert("Personenanzahl und Gesamtpreis sind erforderlich.");
+    } else if (bookingType === 'privat') {
+      if (!customerName || !customerEmail) return alert("Kundenname und Email sind zwingend erforderlich.");
+      if (!groupPersons || !customTotalPrice) return alert("Personenanzahl und Gesamtpreis sind erforderlich.");
+    }
 
     setIsSubmitting(true);
     try {
-      const tickets = categories
+      const tickets = bookingType === 'einzel' ? categories
         .filter(c => (quantities[c.id] || 0) > 0)
-        .map(c => ({ categoryId: c.id, quantity: quantities[c.id] }));
+        .map(c => ({ categoryId: c.id, quantity: quantities[c.id] })) : [];
 
       const selectedEvent = availableEvents.find(e => e.id === selectedEventId);
 
@@ -138,11 +159,16 @@ export function BookingFlow() {
         partnerId: selectedPartnerId || null,
         isB2B: !!selectedPartnerId,
         source: selectedPartnerId ? 'b2b' : 'manual',
-        status: paymentStatus,
+        status: 'pending', // Fest auf pending gesetzt, da keine Zahlung direkt im Flow
+        bookingType,
+        sellerReference: bookingType === 'gruppe' ? sellerReference : undefined,
+        contactPerson: bookingType === 'gruppe' ? contactPerson : undefined,
+        groupPersons: bookingType !== 'einzel' ? Number(groupPersons) : undefined,
+        customTotalPrice: bookingType !== 'einzel' ? Number(customTotalPrice) : undefined,
         tickets,
         customerData: { name: customerName, email: customerEmail },
         totalAmount: totalPrice
-      }, selectedSeats);
+      }, bookingType === 'einzel' ? selectedSeats : []);
       
       setSuccess(true);
       setTimeout(() => navigate('/bookings'), 3000);
@@ -170,6 +196,18 @@ export function BookingFlow() {
       <div className="border-b border-gray-200 pb-5">
         <h1 className="text-3xl font-heading text-brand-primary font-bold">Varianten-Buchung (Mozart Ensemble)</h1>
         <p className="text-gray-500 mt-2 text-lg font-medium">Regiondo B2B Flow & asymmetrische Kontingentbuchung</p>
+      </div>
+
+      <div className="flex gap-4 mb-8">
+        <button onClick={() => setBookingType('einzel')} className={`flex-1 py-4 px-6 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${bookingType === 'einzel' ? 'bg-brand-primary text-white shadow-lg' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
+          <User className="w-5 h-5"/> Einzelbuchung
+        </button>
+        <button onClick={() => setBookingType('gruppe')} className={`flex-1 py-4 px-6 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${bookingType === 'gruppe' ? 'bg-blue-500 text-white shadow-lg' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
+          <Users className="w-5 h-5"/> Gruppenbuchung
+        </button>
+        <button onClick={() => setBookingType('privat')} className={`flex-1 py-4 px-6 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${bookingType === 'privat' ? 'bg-purple-500 text-white shadow-lg' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
+          <UsersRound className="w-5 h-5"/> Privatbuchung
+        </button>
       </div>
 
       {/* Sektion 1: Event & Termin */}
@@ -215,68 +253,62 @@ export function BookingFlow() {
         </h2>
         
         <div className="space-y-6">
-           {/* Partner Auswahl (B2B) */}
-           <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-             <label className="block text-sm font-medium text-gray-700 mb-2">
-               B2B Partner (Optional)
-             </label>
-             <select
-               value={selectedPartnerId}
-               onChange={(e) => setSelectedPartnerId(e.target.value)}
-               className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#c02a2a] focus:border-transparent"
-             >
-               <option value="">-- Kein Partner (Direktbuchung) --</option>
-               {partners.map(partner => (
-                 <option key={partner.id} value={partner.id}>
-                   {partner.name} {partner.type ? `(${partner.type})` : ''}
-                 </option>
-               ))}
-             </select>
-           </div>
+           {/* Partner Auswahl (B2B) - Immer für Gruppe, Optional für Einzel */}
+           {(bookingType === 'einzel' || bookingType === 'gruppe') && (
+             <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+               <label className="block text-sm font-medium text-gray-700 mb-2">
+                 {bookingType === 'gruppe' ? 'Hotel / Partner (Erforderlich)' : 'B2B Partner (Optional)'}
+               </label>
+               <select
+                 value={selectedPartnerId}
+                 onChange={(e) => setSelectedPartnerId(e.target.value)}
+                 className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#c02a2a] focus:border-transparent"
+               >
+                 <option value="">{bookingType === 'gruppe' ? '-- Bitte Partner wählen --' : '-- Kein Partner (Direktbuchung) --'}</option>
+                 {partners.map(partner => (
+                   <option key={partner.id} value={partner.id}>
+                     {partner.name} {partner.type ? `(${partner.type})` : ''}
+                   </option>
+                 ))}
+               </select>
+             </div>
+           )}
+
+           {bookingType === 'gruppe' && (
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+               <div>
+                 <label className="block text-sm font-bold text-gray-700 mb-2">Verkäuferreferenz (Buchungsnummer)</label>
+                 <input type="text" placeholder="z.B. REF-12345" value={sellerReference} onChange={e => setSellerReference(e.target.value)} className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" />
+               </div>
+               <div>
+                 <label className="block text-sm font-bold text-gray-700 mb-2">Kontaktperson (Name)</label>
+                 <input type="text" placeholder="Name der meldenden Person" value={contactPerson} onChange={e => setContactPerson(e.target.value)} className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" />
+               </div>
+             </div>
+           )}
+
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <div>
-               <label className="block text-sm font-bold text-gray-700 mb-2">Vor- und Nachname</label>
-               <input type="text" placeholder="Max Mustermann" value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none shadow-sm" />
+               <label className="block text-sm font-bold text-gray-700 mb-2">{bookingType === 'gruppe' ? 'E-Mail für Bestätigung' : 'Vor- und Nachname'}</label>
+               {bookingType === 'gruppe' ? (
+                 <input type="email" placeholder="hotel@example.com" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" />
+               ) : (
+                 <input type="text" placeholder="Max Mustermann" value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none shadow-sm" />
+               )}
              </div>
-             <div>
-               <label className="block text-sm font-bold text-gray-700 mb-2">Gültige E-Mail Adresse</label>
-               <input type="email" placeholder="max@example.com" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none shadow-sm" />
-             </div>
-           </div>
-           
-           <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-             <label className="block text-sm font-medium text-gray-700 mb-3">
-               Zahlungsstatus
-             </label>
-             <div className="flex gap-4">
-               <label className="flex items-center gap-2 cursor-pointer">
-                 <input
-                   type="radio"
-                   name="paymentStatus"
-                   value="pending"
-                   checked={paymentStatus === 'pending'}
-                   onChange={(e) => setPaymentStatus(e.target.value as 'pending' | 'paid')}
-                   className="text-[#c02a2a] focus:ring-[#c02a2a]"
-                 />
-                 <span className="text-sm text-gray-700">Noch offen (Zahlung ausstehend)</span>
-               </label>
-               <label className="flex items-center gap-2 cursor-pointer">
-                 <input
-                   type="radio"
-                   name="paymentStatus"
-                   value="paid"
-                   checked={paymentStatus === 'paid'}
-                   onChange={(e) => setPaymentStatus(e.target.value as 'pending' | 'paid')}
-                   className="text-[#c02a2a] focus:ring-[#c02a2a]"
-                 />
-                 <span className="text-sm text-gray-700">Bereits bezahlt</span>
-               </label>
-             </div>
+             {bookingType !== 'gruppe' && (
+               <div>
+                 <label className="block text-sm font-bold text-gray-700 mb-2">Gültige E-Mail Adresse</label>
+                 <input type="email" placeholder="max@example.com" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none shadow-sm" />
+               </div>
+             )}
            </div>
         </div>
       </section>
 
       {/* Sektion 3: Tickets */}
+      {bookingType === 'einzel' && (
+      <>
       <section className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500 shadow-[0_0_10px_#10b981]"></div>
         <h2 className="text-xl font-bold text-gray-900 mb-8 flex items-center gap-2">
@@ -302,6 +334,7 @@ export function BookingFlow() {
              <div className="col-span-1 md:col-span-3 p-8 text-center text-gray-500 bg-gray-50 border border-dashed border-gray-300 rounded-xl font-medium">Es sind noch keine Ticket-Kategorien angelegt (Stammdaten).</div>
            )}
          </div> 
+      </section>
         {/* Sektion 4: Saalplan */}
         <section className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-1.5 h-full bg-purple-500 shadow-[0_0_10px_#a855f7]"></div>
@@ -329,6 +362,27 @@ export function BookingFlow() {
             </div>
           )}
         </section>
+      </>
+      )}
+
+      {bookingType !== 'einzel' && (
+        <section className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
+          <div className={`absolute top-0 left-0 w-1.5 h-full ${bookingType === 'gruppe' ? 'bg-blue-500 shadow-[0_0_10px_#3b82f6]' : 'bg-purple-500 shadow-[0_0_10px_#a855f7]'}`}></div>
+          <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <UsersRound className={`w-6 h-6 ${bookingType === 'gruppe' ? 'text-blue-500' : 'text-purple-500'}`}/> 3. Pauschal-Details
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div>
+               <label className="block text-sm font-bold text-gray-700 mb-2">Personenanzahl</label>
+               <input type="number" min="1" placeholder="z.B. 25" value={groupPersons} onChange={e => setGroupPersons(e.target.value ? Number(e.target.value) : '')} className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none shadow-sm text-xl font-bold" />
+             </div>
+             <div>
+               <label className="block text-sm font-bold text-gray-700 mb-2">Gesamtpreis (€)</label>
+               <input type="number" min="0" step="0.01" placeholder="z.B. 1500.00" value={customTotalPrice} onChange={e => setCustomTotalPrice(e.target.value ? Number(e.target.value) : '')} className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none shadow-sm text-xl font-bold" />
+             </div>
+          </div>
+        </section>
+      )}
 
         {/* Checkout Bar */}
         <div className="bg-gray-900 p-8 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-6 shadow-2xl relative overflow-hidden">
@@ -346,7 +400,6 @@ export function BookingFlow() {
              {!isSubmitting && <ChevronRight className="w-7 h-7"/>}
            </button>
         </div>
-      </section>
     </div>
   );
 }

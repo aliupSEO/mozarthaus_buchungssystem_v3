@@ -72,6 +72,7 @@ export function SyncValidator() {
         isB2B: false,
         source: 'manual',
         status: 'pending',
+        bookingType: 'einzel',
         tickets: [{ categoryId: 'cat_a', quantity: 1 }],
         customerData: { name: 'Smoke Test User', email: 'test@mozarthaus.at' },
         totalAmount: 1

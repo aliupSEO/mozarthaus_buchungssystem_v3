@@ -25,34 +25,37 @@ export async function executeBookingTransaction(
 
   try {
     await runTransaction(db, async (transaction) => {
-      // Phase 1: Read lock targeting specific seat docs
-      const seatRefs = selectedSeatIds.map(id => doc(db, seatsColPath, id));
-      const seatDocs = await Promise.all(seatRefs.map(ref => transaction.get(ref)));
+      // Nur für Einzelbuchungen Sitzplätze prüfen und blockieren
+      if (bookingData.bookingType === 'einzel' && selectedSeatIds.length > 0) {
+        // Phase 1: Read lock targeting specific seat docs
+        const seatRefs = selectedSeatIds.map(id => doc(db, seatsColPath, id));
+        const seatDocs = await Promise.all(seatRefs.map(ref => transaction.get(ref)));
 
-      // Phase 2: Validate consistency
-      for (const snap of seatDocs) {
-        if (!snap.exists()) {
-          throw new Error(`Sitzplatz ${snap.id} existiert im System nicht.`);
+        // Phase 2: Validate consistency
+        for (const snap of seatDocs) {
+          if (!snap.exists()) {
+            throw new Error(`Sitzplatz ${snap.id} existiert im System nicht.`);
+          }
+          const seatData = snap.data() as Seat;
+          if (seatData.status !== 'available') {
+            throw new Error(`Ticket-Konflikt: Platz Reihe ${seatData.row} - Sitz ${seatData.number} wurde vor wenigen Sekunden vergeben.`);
+          }
         }
-        const seatData = snap.data() as Seat;
-        if (seatData.status !== 'available') {
-          throw new Error(`Ticket-Konflikt: Platz Reihe ${seatData.row} - Sitz ${seatData.number} wurde vor wenigen Sekunden vergeben.`);
-        }
-      }
 
-      // Phase 3: Mutations (Data Write)
-      seatRefs.forEach(ref => {
-        transaction.update(ref, {
-          status: 'sold',
-          bookingId: bookingId
+        // Phase 3: Mutations (Data Write)
+        seatRefs.forEach(ref => {
+          transaction.update(ref, {
+            status: 'sold',
+            bookingId: bookingId
+          });
         });
-      });
+      }
 
       // Emit final booking payload
       const newBooking: Booking = {
         ...bookingData,
         id: bookingId,
-        seatIds: selectedSeatIds,
+        seatIds: bookingData.bookingType === 'einzel' ? selectedSeatIds : [],
         createdAt: Timestamp.now()
       };
       transaction.set(bookingRef, newBooking);

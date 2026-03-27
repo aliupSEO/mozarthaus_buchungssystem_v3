@@ -45,6 +45,14 @@ export interface Booking {
   eventDate?: string;
   eventTitle?: string;
   totalAmount: number;
+  
+  // Neue Felder für Buchungsvarianten
+  bookingType?: 'einzel' | 'gruppe' | 'privat';
+  sellerReference?: string;
+  contactPerson?: string;
+  groupPersons?: number;
+  customTotalPrice?: number;
+
   createdAt: Timestamp;
   updatedAt?: string | Timestamp;
 }
