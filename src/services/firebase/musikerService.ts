@@ -15,6 +15,7 @@ export interface Musiker {
   email: string;
   steuernummer: string;
   steuersatz: number;
+  active?: boolean;
 }
 
 export async function fetchMusiker(): Promise<Musiker[]> {
@@ -37,4 +38,8 @@ export async function createMusiker(id: string, musiker: Omit<Musiker, 'id'>) {
 
 export async function deleteMusiker(id: string) {
     await deleteDoc(doc(db, `apps/${APP_ID}/musiker`, id));
+}
+
+export async function updateMusiker(id: string, updates: Partial<Musiker>) {
+    await setDoc(doc(db, `apps/${APP_ID}/musiker`, id), updates, { merge: true });
 }

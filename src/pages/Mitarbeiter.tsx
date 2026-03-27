@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
-import { createMusiker, deleteMusiker, type Musiker as MusikerType } from '../services/firebase/musikerService';
-import { Plus, User, Trash2, Edit2 } from 'lucide-react';
+import { createMusiker, deleteMusiker, updateMusiker, type Musiker as MusikerType } from '../services/firebase/musikerService';
+import { Plus, User, Trash2, Edit2, Archive, RefreshCw } from 'lucide-react';
 
 export function Mitarbeiter() {
   const [musikerList, setMusikerList] = useState<MusikerType[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
 
   // Form State
   const [art, setArt] = useState('Mitarbeiter');
@@ -29,8 +30,9 @@ export function Mitarbeiter() {
       const list: MusikerType[] = [];
       snap.forEach(d => {
         const data = d.data();
+        const isActive = data.active !== false;
         if (data.art === 'Mitarbeiter' || data.art === 'Dienstleister') {
-          list.push({ id: d.id, ...data } as MusikerType);
+          list.push({ id: d.id, ...data, active: isActive } as MusikerType);
         }
       });
       // Sortieren nach Nachname
@@ -95,7 +97,8 @@ export function Mitarbeiter() {
         telefon,
         email,
         steuernummer,
-        steuersatz
+        steuersatz,
+        active: true
       });
       setIsModalOpen(false);
       resetForm();
@@ -106,8 +109,17 @@ export function Mitarbeiter() {
     }
   };
 
+  const handleArchive = async (id: string, activeStatus: boolean) => {
+    try {
+      await updateMusiker(id, { active: activeStatus });
+    } catch (error) {
+      console.error("Error updating status:", error);
+      alert('Fehler beim Aktualisieren des Status');
+    }
+  };
+
   const handleDelete = async (id: string, name: string) => {
-    if (window.confirm(`Möchten Sie ${name} wirklich löschen?`)) {
+    if (window.confirm(`Möchten Sie ${name} unwiderruflich löschen?`)) {
       try {
         await deleteMusiker(id);
       } catch (err) {
@@ -115,6 +127,8 @@ export function Mitarbeiter() {
       }
     }
   };
+
+  const displayedMitarbeiter = musikerList.filter(m => activeTab === 'active' ? m.active : !m.active);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -130,16 +144,51 @@ export function Mitarbeiter() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex space-x-4 mb-6 border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab('active')}
+          className={`py-2 px-4 font-medium text-sm transition-colors border-b-2 ${
+            activeTab === 'active' 
+              ? 'border-brand-primary text-brand-primary font-bold' 
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          Aktive Mitarbeiter
+        </button>
+        <button
+          onClick={() => setActiveTab('archived')}
+          className={`py-2 px-4 font-medium text-sm transition-colors border-b-2 ${
+            activeTab === 'archived' 
+              ? 'border-brand-primary text-brand-primary font-bold' 
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          Archivierte Mitarbeiter
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {musikerList.map(m => (
+        {displayedMitarbeiter.map(m => (
           <div key={m.id} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col relative group">
             <div className="absolute top-4 right-4 flex opacity-0 group-hover:opacity-100 transition-opacity gap-2">
               <button onClick={() => openEditModal(m)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md" title="Bearbeiten">
                 <Edit2 className="w-4 h-4" />
               </button>
-              <button onClick={() => handleDelete(m.id, `${m.vorname} ${m.nachname}`)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md" title="Löschen">
-                <Trash2 className="w-4 h-4" />
-              </button>
+              {activeTab === 'active' ? (
+                <button onClick={() => handleArchive(m.id, false)} className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded-md" title="Archivieren">
+                  <Archive className="w-4 h-4" />
+                </button>
+              ) : (
+                <>
+                  <button onClick={() => handleArchive(m.id, true)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-md" title="Wiederherstellen">
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => handleDelete(m.id, `${m.vorname} ${m.nachname}`)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md" title="Endgültig löschen">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </>
+              )}
             </div>
 
             <div className="flex justify-between items-start mb-4">
@@ -163,9 +212,9 @@ export function Mitarbeiter() {
             </div>
           </div>
         ))}
-        {musikerList.length === 0 && (
+        {displayedMitarbeiter.length === 0 && (
           <div className="col-span-full p-8 text-center text-gray-500 bg-white rounded-lg border border-dashed border-gray-300">
-            Keine Musiker/Mitarbeiter hinterlegt.
+            Keine Einträge in diesem Tab gefunden.
           </div>
         )}
       </div>
