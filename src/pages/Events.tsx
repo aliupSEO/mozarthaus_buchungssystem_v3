@@ -4,7 +4,8 @@ import { collection, onSnapshot, doc, writeBatch, Timestamp, query, where } from
 import { db } from '../lib/firebase';
 import { APP_ID } from '../lib/constants';
 import { Event } from '../types/schema';
-import { CalendarPlus } from 'lucide-react';
+import { CalendarPlus, RefreshCw } from 'lucide-react';
+import { syncMissingEvents } from '../utils/syncEventsFromBookings';
 import { initializeEventSeats } from '../services/bookingService';
 
 function EventOccupancy({ eventId }: { eventId: string }) {
@@ -72,6 +73,22 @@ export function Events() {
   const [isCreating, setIsCreating] = useState(false);
   const navigate = useNavigate();
 
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSync = async () => {
+    if (!window.confirm('Möchtest du fehlende Events aus den Buchungen generieren?')) return;
+    setIsSyncing(true);
+    try {
+      const count = await syncMissingEvents();
+      alert(`${count} fehlende Events wurden erfolgreich erstellt und initialisiert!`);
+    } catch (error) {
+      console.error(error);
+      alert('Fehler beim Synchronisieren.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   useEffect(() => {
     const unsub = onSnapshot(collection(db, `apps/${APP_ID}/events`), snap => {
       const evts: Event[] = [];
@@ -128,12 +145,22 @@ export function Events() {
     <div className="max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-heading text-brand-primary">Events & Konzerte</h1>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-red-700 transition"
-        >
-          <CalendarPlus className="w-5 h-5"/> Neuer Event
-        </button>
+        <div className="flex gap-3">
+          <button 
+            onClick={handleSync}
+            disabled={isSyncing}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
+          >
+            <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`}/> 
+            {isSyncing ? 'Sync...' : 'Fehlende Events generieren'}
+          </button>
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-red-700 transition"
+          >
+            <CalendarPlus className="w-5 h-5"/> Neuer Event
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
