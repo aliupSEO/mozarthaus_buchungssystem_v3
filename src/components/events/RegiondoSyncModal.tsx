@@ -20,17 +20,20 @@ export function RegiondoSyncModal({ isOpen, onClose }: RegiondoSyncModalProps) {
 
     setIsSyncing(true);
     
-    const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL_REGIONDO_SYNC || 'https://up-seo-2025/webhook/regiondo-fetch-events';
+    const webhookUrl = import.meta.env.VITE_N8N_REGIONDO_SYNC_WEBHOOK_URL || 'https://up-seo-2025.app.n8n.cloud/webhook/regiondo-fetch-events';
 
     try {
       const response = await fetch(webhookUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify({ startDate, endDate }),
       });
 
       if (!response.ok) {
-        throw new Error('Netzwerk fehlerhaft');
+        throw new Error(`Netzwerk fehlerhaft: ${response.status} ${response.statusText}`);
       }
 
       toast.success('Regiondo Sync gestartet! Die leeren Termine werden im Hintergrund in Firebase importiert.');
