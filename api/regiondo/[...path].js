@@ -10,6 +10,10 @@ function normalizeHost(raw) {
   return `https://${t}`;
 }
 
+function normalizeSecret(raw) {
+  return String(raw || '').trim();
+}
+
 function parsePathParam(value) {
   if (!value) return [];
   if (Array.isArray(value)) return value;
@@ -22,6 +26,12 @@ function partsFromUrl(req) {
   const prefix = '/api/regiondo/';
   if (!pathname.startsWith(prefix)) return [];
   return pathname.slice(prefix.length).split('/').filter(Boolean);
+}
+
+function rawQueryFromUrl(req) {
+  const base = 'http://localhost';
+  const search = new URL(req.url || '/', base).search;
+  return search.startsWith('?') ? search.slice(1) : search;
 }
 
 function regiondoPathFromParts(parts) {
@@ -46,8 +56,8 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    const publicKey = process.env.REGIONDO_PUBLIC_KEY || process.env.VITE_REGIONDO_PUBLIC_KEY || '';
-    const privateKey = process.env.REGIONDO_PRIVATE_KEY || process.env.VITE_REGIONDO_PRIVATE_KEY || '';
+    const publicKey = normalizeSecret(process.env.REGIONDO_PUBLIC_KEY || process.env.VITE_REGIONDO_PUBLIC_KEY);
+    const privateKey = normalizeSecret(process.env.REGIONDO_PRIVATE_KEY || process.env.VITE_REGIONDO_PRIVATE_KEY);
     if (!publicKey || !privateKey) {
       res.status(503).json({
         error:
@@ -71,17 +81,8 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    const qp = new URLSearchParams();
-    for (const [k, v] of Object.entries(query)) {
-      if (k === 'path') continue;
-      if (Array.isArray(v)) {
-        for (const item of v) qp.append(k, String(item));
-      } else if (v != null) {
-        qp.append(k, String(v));
-      }
-    }
-
-    const queryString = qp.toString();
+    const queryString = rawQueryFromUrl(req);
+    const queryParams = new URLSearchParams(queryString);
     const { timestamp, hash } = sign(publicKey, privateKey, queryString);
     const target = queryString ? `${regiondoHost}${path}?${queryString}` : `${regiondoHost}${path}`;
 
@@ -90,7 +91,7 @@ module.exports = async function handler(req, res) {
       'X-API-TIME': timestamp,
       'X-API-HASH': hash,
       Accept: 'application/json',
-      'Accept-Language': String(query.store_locale || 'de-AT'),
+      'Accept-Language': String(queryParams.get('store_locale') || 'de-AT'),
       'User-Agent': 'Mozarthaus-Regiondo-Proxy/1.0',
     };
 
