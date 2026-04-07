@@ -41,6 +41,16 @@ function rawQueryFromUrl(req) {
   return search.startsWith('?') ? search.slice(1) : search;
 }
 
+function sanitizeForwardQuery(rawQuery) {
+  const inParams = new URLSearchParams(rawQuery || '');
+  const outParams = new URLSearchParams();
+  for (const [k, v] of inParams.entries()) {
+    if (k === '__debug' || k === 'path' || k === '...path') continue;
+    outParams.append(k, v);
+  }
+  return outParams.toString();
+}
+
 function regiondoPathFromParts(parts) {
   const rest = parts.join('/').replace(/^\/+|\/+$/g, '');
   if (!rest) return null;
@@ -94,7 +104,8 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    const queryString = rawQueryFromUrl(req);
+    const rawQuery = rawQueryFromUrl(req);
+    const queryString = sanitizeForwardQuery(rawQuery);
     const queryParams = new URLSearchParams(queryString);
     if (debugMode) {
       res.status(200).json({
@@ -111,6 +122,7 @@ module.exports = async function handler(req, res) {
         },
         regiondoHost,
         path,
+        rawQuery,
         queryString,
       });
       return;
