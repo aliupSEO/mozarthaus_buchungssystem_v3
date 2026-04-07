@@ -31,66 +31,67 @@ function sign(publicKey: string, privateKey: string, queryString: string) {
 }
 
 export default async function handler(req: any, res: any) {
-  if (!ALLOWED_METHODS.has(req.method || '')) {
-    res.status(405).send('Method Not Allowed');
-    return;
-  }
-
-  const publicKey = process.env.REGIONDO_PUBLIC_KEY || process.env.VITE_REGIONDO_PUBLIC_KEY || '';
-  const privateKey = process.env.REGIONDO_PRIVATE_KEY || process.env.VITE_REGIONDO_PRIVATE_KEY || '';
-
-  if (!publicKey || !privateKey) {
-    res.status(503).json({
-      error:
-        'Regiondo API keys not configured. Set REGIONDO_PUBLIC_KEY and REGIONDO_PRIVATE_KEY in Vercel Environment Variables.',
-    });
-    return;
-  }
-
-  const regiondoHost = normalizeHost(process.env.REGIONDO_API_HOST || process.env.VITE_REGIONDO_API_HOST);
-  const parts = parsePathParam(req.query.path);
-  const path = regiondoPathFromParts(parts);
-
-  if (!path) {
-    res.status(400).json({ error: 'Missing Regiondo sub-path' });
-    return;
-  }
-
-  const qp = new URLSearchParams();
-  for (const [k, v] of Object.entries(req.query)) {
-    if (k === 'path') continue;
-    if (Array.isArray(v)) {
-      for (const item of v) qp.append(k, item);
-    } else if (v != null) {
-      qp.append(k, String(v));
-    }
-  }
-
-  const queryString = qp.toString();
-  const { timestamp, hash } = sign(publicKey, privateKey, queryString);
-  const target = queryString ? `${regiondoHost}${path}?${queryString}` : `${regiondoHost}${path}`;
-
-  const headers: Record<string, string> = {
-    'X-API-ID': publicKey,
-    'X-API-TIME': timestamp,
-    'X-API-HASH': hash,
-    Accept: 'application/json',
-    'Accept-Language': (req.query.store_locale as string) || 'de-AT',
-    'User-Agent': 'Mozarthaus-Regiondo-Proxy/1.0',
-  };
-
-  const rawBody = ['GET', 'DELETE'].includes(req.method || '') ? undefined : req.body;
-  let body: string | undefined;
-  if (rawBody != null && rawBody !== '') {
-    if (typeof rawBody === 'string') {
-      body = rawBody;
-    } else {
-      body = JSON.stringify(rawBody);
-      headers['Content-Type'] = (req.headers['content-type'] as string) || 'application/json';
-    }
-  }
-
   try {
+    if (!ALLOWED_METHODS.has(req.method || '')) {
+      res.status(405).send('Method Not Allowed');
+      return;
+    }
+
+    const publicKey = process.env.REGIONDO_PUBLIC_KEY || process.env.VITE_REGIONDO_PUBLIC_KEY || '';
+    const privateKey = process.env.REGIONDO_PRIVATE_KEY || process.env.VITE_REGIONDO_PRIVATE_KEY || '';
+
+    if (!publicKey || !privateKey) {
+      res.status(503).json({
+        error:
+          'Regiondo API keys not configured. Set REGIONDO_PUBLIC_KEY and REGIONDO_PRIVATE_KEY in Vercel Environment Variables.',
+      });
+      return;
+    }
+
+    const query = (req?.query ?? {}) as Record<string, string | string[] | undefined>;
+    const regiondoHost = normalizeHost(process.env.REGIONDO_API_HOST || process.env.VITE_REGIONDO_API_HOST);
+    const parts = parsePathParam(query.path);
+    const path = regiondoPathFromParts(parts);
+
+    if (!path) {
+      res.status(400).json({ error: 'Missing Regiondo sub-path' });
+      return;
+    }
+
+    const qp = new URLSearchParams();
+    for (const [k, v] of Object.entries(query)) {
+      if (k === 'path') continue;
+      if (Array.isArray(v)) {
+        for (const item of v) qp.append(k, item);
+      } else if (v != null) {
+        qp.append(k, String(v));
+      }
+    }
+
+    const queryString = qp.toString();
+    const { timestamp, hash } = sign(publicKey, privateKey, queryString);
+    const target = queryString ? `${regiondoHost}${path}?${queryString}` : `${regiondoHost}${path}`;
+
+    const headers: Record<string, string> = {
+      'X-API-ID': publicKey,
+      'X-API-TIME': timestamp,
+      'X-API-HASH': hash,
+      Accept: 'application/json',
+      'Accept-Language': (query.store_locale as string) || 'de-AT',
+      'User-Agent': 'Mozarthaus-Regiondo-Proxy/1.0',
+    };
+
+    const rawBody = ['GET', 'DELETE'].includes(req.method || '') ? undefined : req.body;
+    let body: string | undefined;
+    if (rawBody != null && rawBody !== '') {
+      if (typeof rawBody === 'string') {
+        body = rawBody;
+      } else {
+        body = JSON.stringify(rawBody);
+        headers['Content-Type'] = (req.headers?.['content-type'] as string) || 'application/json';
+      }
+    }
+
     const response = await fetch(target, {
       method: req.method,
       headers,
@@ -101,11 +102,10 @@ export default async function handler(req: any, res: any) {
     res.status(response.status).send(text);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    res.status(502).json({
-      error: 'Regiondo proxy request failed',
+    res.status(500).json({
+      error: 'Regiondo proxy handler crashed',
       detail,
-      hint:
-        'Check REGIONDO_API_HOST and keys. Use sandbox host for sandbox keys and live host for live keys.',
+      hint: 'Check Vercel function logs for stack trace and validate env variables.',
     });
   }
 }
