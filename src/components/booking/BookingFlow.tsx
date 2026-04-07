@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { collection, query, orderBy, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { APP_ID } from '../../lib/constants';
@@ -342,11 +342,14 @@ export function BookingFlow() {
     };
   }, []);
 
-  // Trim seat selection before paint when ticket count drops — avoids a paint where SeatMap props disagree (React 19 DOM errors).
-  useLayoutEffect(() => {
+  // Trim seat selection when ticket count drops to keep SeatMap props consistent.
+  useEffect(() => {
     let total = 0;
     for (const q of Object.values(quantities)) total += q;
-    setSelectedSeats((prev) => (prev.length > total ? prev.slice(0, total) : prev));
+    setSelectedSeats((prev) => {
+      if (prev.length <= total) return prev;
+      return prev.slice(0, total);
+    });
   }, [quantities]);
 
   useEffect(() => {
@@ -1070,6 +1073,7 @@ export function BookingFlow() {
           ) : (
             <div className="overflow-hidden">
                <SeatMap 
+                 key={`${linkedFirebaseEventId}:${totalTickets}`}
                  eventId={linkedFirebaseEventId}
                  requiredSeats={totalTickets}
                  selectedSeats={selectedSeats}
