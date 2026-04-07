@@ -35,6 +35,21 @@ function regiondoPathFromApiPath(pathname: string): string | null {
   return `/v1/${rest}`;
 }
 
+/**
+ * Supports both:
+ * - /api/regiondo/<subPath>
+ * - /api/regiondo?path=<subPath>
+ */
+function regiondoPathFromIncoming(incoming: URL): string | null {
+  const byPath = regiondoPathFromApiPath(incoming.pathname);
+  if (byPath) return byPath;
+  if (incoming.pathname !== '/api/regiondo') return null;
+  const qpPath = (incoming.searchParams.get('path') || '').trim().replace(/^\/+|\/+$/g, '');
+  if (!qpPath) return null;
+  if (qpPath === 'products') return '/v1/products';
+  return `/v1/${qpPath}`;
+}
+
 function readRequestBody(req: IncomingMessage): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -57,7 +72,7 @@ type NextFn = (err?: unknown) => void;
 
 function regiondoProxyMiddleware(publicKey: string, privateKey: string, regiondoHost: string) {
   return async (req: IncomingMessage, res: ServerResponse, next: NextFn) => {
-    if (!req.url?.startsWith('/api/regiondo/')) {
+      if (!req.url?.startsWith('/api/regiondo')) {
       next();
       return;
     }
@@ -71,13 +86,14 @@ function regiondoProxyMiddleware(publicKey: string, privateKey: string, regiondo
 
     try {
       const incoming = new URL(req.url, 'http://localhost');
-      const path = regiondoPathFromApiPath(incoming.pathname);
+      const path = regiondoPathFromIncoming(incoming);
       if (!path) {
         next();
         return;
       }
 
       const forward = new URLSearchParams(incoming.search);
+      forward.delete('path');
       const queryString = forward.toString();
       const regiondoUrl = queryString ? `${regiondoHost}${path}?${queryString}` : `${regiondoHost}${path}`;
 
